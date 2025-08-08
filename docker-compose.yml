@@ -23,9 +23,9 @@ services:
       timeout: 5s
       retries: 10
 
-  aegis-migrate:
+  damocles-migrate:
     build: .
-    container_name: aegis-migrate
+    container_name: damocles-migrate
     working_dir: /app
     env_file: .env.development
     environment:
@@ -34,7 +34,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # Share ONLY the keys dir so generated keys persist/are visible to aegis-auth
+    # Share ONLY the keys dir so generated keys persist/are visible to damocles-auth
     volumes:
       - ./etc/keys:/app/etc/keys
     command: >
@@ -44,15 +44,15 @@ services:
         yarn prisma:seed:tenant
       "
 
-  aegis-auth:
+  damocles:
     build: .
-    container_name: aegis-auth
+    container_name: damocles
     env_file: .env.development
     environment:
       DATABASE_URL: postgresql://auth_user:supersecret@db:5432/auth_db?schema=public
       REDIS_URL: redis://redis-auth:6379/0
     depends_on:
-      aegis-migrate:
+      damocles-migrate:
         condition: service_completed_successfully
       redis:
         condition: service_started

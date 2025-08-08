@@ -34,13 +34,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # Share ONLY the keys dir so generated keys persist/are visible to aegis-auth
+    volumes:
+      - ./etc/keys:/app/etc/keys
     command: >
       sh -c "
-        npx prisma generate &&
-        npx prisma db push &&
+        yarn oauth:generate:keys &&
+        yarn prisma:init:local &&
         yarn prisma:seed:tenant
       "
-
 
   aegis-auth:
     build: .
@@ -59,6 +61,7 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+      - ./etc/keys:/app/etc/keys   # same path as migrate → app sees generated keys
       - ./log:/app/log
     command: sh -c "yarn dev"
 

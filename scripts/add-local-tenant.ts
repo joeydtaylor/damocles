@@ -10,6 +10,16 @@ loadEnv({ path: ".env.development" }); // adjust if you run with a different env
 
 const prisma = new PrismaClient();
 
+const has = (v?: string | null) => typeof v === "string" && v.trim().length > 0;
+const fileExists = (p?: string) => {
+  if (!has(p)) return false;
+  try {
+    return fs.statSync(p!).isFile();
+  } catch {
+    return false;
+  }
+};
+
 async function upsertClient(opts: {
   name: string;
   clientId: string;
@@ -52,9 +62,7 @@ async function upsertClient(opts: {
         confidential: opts.confidential,
         scopes: existing.scopes?.length ? existing.scopes : opts.scopes,
         organizationId: existing.organizationId ?? opts.organizationId,
-        ...(opts.confidential
-          ? { clientSecret }
-          : { clientSecret: "" }),
+        ...(opts.confidential ? { clientSecret } : { clientSecret: "" }),
       },
     });
     console.log(
@@ -66,16 +74,48 @@ async function upsertClient(opts: {
 }
 
 async function main() {
-  const samlEnabled = true;
-  const oidcEnabled = true;
-
+  // ---------- Detect SAML ----------
+  let samlEnabled = false;
   let samlXml: string | null = null;
-  if (samlEnabled) {
-    const metadataPath = process.env.SAML_METADATA_PATH;
-    if (!metadataPath) throw new Error("SAML_METADATA_PATH not set in env");
-    samlXml = fs.readFileSync(path.resolve(metadataPath), "utf-8");
+
+  const metadataPathEnv = process.env.SAML_METADATA_PATH;
+  const metadataPath = metadataPathEnv
+    ? path.resolve(process.cwd(), metadataPathEnv)
+    : undefined;
+
+  if (fileExists(metadataPath)) {
+    try {
+      samlXml = fs.readFileSync(metadataPath!, "utf8");
+      if (has(samlXml)) {
+        samlEnabled = true;
+        console.log(`✅ SAML enabled (metadata: ${metadataPath})`);
+      } else {
+        console.log("⚠️  SAML metadata file is empty; SAML disabled");
+      }
+    } catch (e) {
+      console.log(`⚠️  Failed to read SAML metadata (${metadataPath}): ${(e as Error).message}; SAML disabled`);
+    }
+  } else {
+    console.log("ℹ️  No valid SAML metadata provided; SAML disabled");
   }
 
+  // ---------- Detect OIDC ----------
+  const oidcIssuer = process.env.OIDC_ISSUER_URL;
+  const oidcClientId = process.env.OIDC_CLIENT_ID;
+  const oidcClientSecret = process.env.OIDC_CLIENT_SECRET || null;
+  const oidcJwksUrl = process.env.OIDC_JWKS_URL;
+  const oidcScopesStr = process.env.OIDC_SCOPES;
+
+  const oidcEnabled =
+    has(oidcIssuer) && has(oidcClientId) && has(oidcJwksUrl) && has(oidcScopesStr);
+
+  if (oidcEnabled) {
+    console.log("✅ OIDC enabled (issuer/client/jwks/scopes present)");
+  } else {
+    console.log("ℹ️  OIDC not fully configured; skipping OIDC config");
+  }
+
+  // ---------- Organization upsert ----------
   const org = await prisma.organization.upsert({
     where: { domain: "local" },
     update: {
@@ -93,37 +133,41 @@ async function main() {
     },
   });
 
+  // ---------- OIDC config upsert (conditional) ----------
   if (oidcEnabled) {
+    const scopes = (oidcScopesStr as string).split(",").map((s) => s.trim()).filter(Boolean);
     await prisma.oIDCConfig.upsert({
       where: { organizationId: org.id },
       update: {
-        issuerUrl: process.env.OIDC_ISSUER_URL!,
-        clientId: process.env.OIDC_CLIENT_ID!,
-        clientSecret: process.env.OIDC_CLIENT_SECRET || null,
-        jwksUrl: process.env.OIDC_JWKS_URL!,
-        scopes: process.env.OIDC_SCOPES!.split(",").map(s => s.trim()),
+        issuerUrl: oidcIssuer as string,
+        clientId: oidcClientId as string,
+        clientSecret: oidcClientSecret,
+        jwksUrl: oidcJwksUrl as string,
+        scopes,
       },
       create: {
         id: randomUUID(),
         organizationId: org.id,
-        issuerUrl: process.env.OIDC_ISSUER_URL!,
-        clientId: process.env.OIDC_CLIENT_ID!,
-        clientSecret: process.env.OIDC_CLIENT_SECRET || null,
-        jwksUrl: process.env.OIDC_JWKS_URL!,
-        scopes: process.env.OIDC_SCOPES!.split(",").map(s => s.trim()),
+        issuerUrl: oidcIssuer as string,
+        clientId: oidcClientId as string,
+        clientSecret: oidcClientSecret,
+        jwksUrl: oidcJwksUrl as string,
+        scopes,
       },
     });
   }
 
-  const builtinRoles = [
-    process.env.ADMIN_ROLE_NAME!,
-    process.env.DEVELOPER_ROLE_NAME!,
-    process.env.CONTRIBUTOR_ROLE_NAME!,
-    process.env.READER_ROLE_NAME!,
-    process.env.AUDITOR_ROLE_NAME!,
-    process.env.SUPPORT_ROLE_NAME!,
+  // ---------- Built-in roles ----------
+  const roleNames = [
+    process.env.ADMIN_ROLE_NAME || "admin",
+    process.env.DEVELOPER_ROLE_NAME || "developer",
+    process.env.CONTRIBUTOR_ROLE_NAME || "contributor",
+    process.env.READER_ROLE_NAME || "reader",
+    process.env.AUDITOR_ROLE_NAME || "auditor",
+    process.env.SUPPORT_ROLE_NAME || "support",
   ];
-  for (const name of builtinRoles) {
+
+  for (const name of roleNames) {
     await prisma.role.upsert({
       where: { name_organizationId: { name, organizationId: org.id } },
       update: {},
@@ -131,8 +175,9 @@ async function main() {
     });
   }
 
+  // ---------- OAuth clients ----------
   const extraScopes = process.env.OAUTH_EXTRA_SCOPES
-    ? process.env.OAUTH_EXTRA_SCOPES.split(",").map(s => s.trim())
+    ? process.env.OAUTH_EXTRA_SCOPES.split(",").map((s) => s.trim()).filter(Boolean)
     : [];
 
   await upsertClient({
@@ -141,10 +186,7 @@ async function main() {
     confidential: true,
     clientSecretPlain: "local-secret",
     organizationId: org.id,
-    redirectUris: [
-      "https://localhost:3000/callback",
-      "http://localhost:3002/callback",
-    ],
+    redirectUris: ["https://localhost:3000/callback", "http://localhost:3002/callback"],
     scopes: extraScopes,
   });
 
@@ -153,14 +195,14 @@ async function main() {
     clientId: "steeze-public-spa",
     confidential: false,
     organizationId: org.id,
-    redirectUris: [
-      "https://localhost:3001/callback",
-      "http://localhost:5173/callback",
-    ],
+    redirectUris: ["https://localhost:3001/callback", "http://localhost:5173/callback"],
     scopes: [...extraScopes, "openid", "profile", "email"],
   });
 
-  console.log(`✅ Seeded tenant: ${org.name} (${org.domain}); roles: ${builtinRoles.join(", ")}`);
+  console.log(
+    `✅ Seeded tenant: ${org.name} (${org.domain}); roles: ${roleNames.join(", ")}; ` +
+      `features → SAML=${samlEnabled} OIDC=${oidcEnabled}`
+  );
 }
 
 main()

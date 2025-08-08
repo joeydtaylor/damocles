@@ -9,12 +9,12 @@
     "dev": "cross-env NODE_ENV=development nodemon ./src/app.ts --ignore '*.json'",
     "start": "tsc -p . && cross-env NODE_ENV=production node ./dist/app.js",
     "build": "tsc -p .",
-    "prisma:generate": "cross-env POSTGRES_URL=${POSTGRES_URL:-postgresql://auth_user:supersecret@db:5432/auth_db} prisma generate --schema=prisma/schema.prisma",
-    "prisma:push": "cross-env POSTGRES_URL=${POSTGRES_URL:-postgresql://auth_user:supersecret@db:5432/auth_db} prisma db push --schema=prisma/schema.prisma",
-    "prisma:studio": "cross-env POSTGRES_URL=${POSTGRES_URL:-postgresql://auth_user:supersecret@db:5432/auth_db} prisma studio --schema=prisma/schema.prisma",
-    "prisma:seed:tenant": "cross-env POSTGRES_URL=${POSTGRES_URL:-postgresql://auth_user:supersecret@db:5432/auth_db} ts-node scripts/add-local-tenant.ts",
+    "prisma:generate": "cross-env DATABASE_URL=${DATABASE_URL:-postgresql://auth_user:supersecret@db:5432/auth_db?schema=public} prisma generate --schema=prisma/schema.prisma",
+    "prisma:push": "cross-env DATABASE_URL=${DATABASE_URL:-postgresql://auth_user:supersecret@db:5432/auth_db?schema=public} prisma db push --schema=prisma/schema.prisma",
+    "prisma:studio": "cross-env DATABASE_URL=${DATABASE_URL:-postgresql://auth_user:supersecret@db:5432/auth_db?schema=public} prisma studio --schema=prisma/schema.prisma",
+    "prisma:seed:tenant": "cross-env DATABASE_URL=${DATABASE_URL:-postgresql://auth_user:supersecret@db:5432/auth_db?schema=public} ts-node scripts/add-local-tenant.ts",
     "prisma:init:local": "yarn prisma:reset:local",
-    "prisma:reset:local": "cross-env POSTGRES_URL=${POSTGRES_URL:-postgresql://auth_user:supersecret@db:5432/auth_db} prisma db push --force-reset --schema=prisma/schema.prisma && yarn prisma:generate && yarn prisma:seed:tenant",
+    "prisma:reset:local": "cross-env DATABASE_URL=${DATABASE_URL:-postgresql://auth_user:supersecret@db:5432/auth_db?schema=public} prisma db push --force-reset --schema=prisma/schema.prisma && yarn prisma:generate && yarn prisma:seed:tenant",
     "oauth:generate:keys": "ts-node scripts/generate-oauth-keys.ts"
   },
   "dependencies": {

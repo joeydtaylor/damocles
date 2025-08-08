@@ -1,5 +1,5 @@
 import express from "express";
-import Authentication from "../../controllers/auth/authentication";
+import Authentication from "../../controllers/auth/authentication.controller";
 
 module.exports = (app: express.Application) => {
   const auth = new Authentication();

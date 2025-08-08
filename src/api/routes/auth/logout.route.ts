@@ -1,6 +1,6 @@
 // src/api/routes/auth/logout.ts
 import express from "express";
-import Authentication from "../../controllers/auth/authentication";
+import Authentication from "../../controllers/auth/authentication.controller";
 // Optional: clear cache entry on logout if you store sid earlier in the request.
 // import { sessionContextCache } from "../../../middleware/cache/sessionContextCache";
 

@@ -12,7 +12,7 @@ import Redis from "ioredis";
 import RedisStore from "connect-redis";
 import compression from "compression";
 import "reflect-metadata";
-import { globalConfiguration } from "./helpers/configuration";
+import { globalConfiguration } from "./helpers/configuration.helper";
 import { constants as tlsConsts } from "crypto";
 
 /**
@@ -66,12 +66,12 @@ const main = async (): Promise<void> => {
   app.set("trust proxy", resolveTrustProxy(process.env.TRUST_PROXY ?? (IS_PROD ? "true" : "false")));
 
   // 1. Passport setup
-  await require("./middleware/authentication/passport")(passport, globalConfiguration);
+  await require("./middleware/authentication/passport.middleware")(passport, globalConfiguration);
   app.use(passport.initialize());
 
   // 2. Logging / Metrics
-  await require("./middleware/logging/logger")(app, globalConfiguration);
-  await require("./middleware/logging/prometheus")(app);
+  await require("./middleware/logging/logger.middleware")(app, globalConfiguration);
+  await require("./middleware/logging/prometheus.middleware")(app);
 
   // 2.5 Enforce HTTPS redirect early
   if (ENFORCE_TLS_REDIRECT) {
@@ -164,17 +164,17 @@ const main = async (): Promise<void> => {
 
   // 6. Authentication Routes
   if (globalConfiguration.security.authentication.samlConfiguration.enabled) {
-    await require("./api/routes/auth/saml")(app);
+    await require("./api/routes/auth/saml.route")(app);
   }
 
   // OAuth2 / OIDC
-  await require("./api/routes/auth/oauth")(app);
-  await require("./api/routes/auth/oidc")(app);
+  await require("./api/routes/auth/oauth.route")(app);
+  await require("./api/routes/auth/oidc.route")(app);
 
   // 7. Other auth + core routes
-  await require("./api/routes/auth/logout")(app);
-  await require("./api/routes/auth/session")(app);
-  await require("./api/routes/index")(app);
+  await require("./api/routes/auth/logout.route")(app);
+  await require("./api/routes/auth/session.route")(app);
+  await require("./api/routes/index.route")(app);
 
   // 8. Start HTTPS server (and optional HTTP→HTTPS redirect server)
   const httpsOptions: https.ServerOptions = {

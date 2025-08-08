@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { tokenLimiter, refreshLimiter } from "./rateLimit";
+import { tokenLimiter, refreshLimiter } from "./rateLimit.middleware";
 
 /**
  * Use stricter limiter for refresh_token, otherwise the general token limiter.

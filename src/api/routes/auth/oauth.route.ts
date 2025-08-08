@@ -1,11 +1,11 @@
 import express from "express";
-import Authentication from "../../controllers/auth/authentication";
+import Authentication from "../../controllers/auth/authentication.controller";
 import {
   authorizeLimiter,
   introspectLimiter,
-} from "../../../middleware/security/rateLimit";
-import { grantAwareTokenLimiter } from "../../../middleware/security/grantAwareLimiter";
-import { noStore } from "../../../middleware/security/noStore";
+} from "../../../middleware/security/rateLimit.middleware";
+import { grantAwareTokenLimiter } from "../../../middleware/security/grantLimiter.middleware";
+import { noStore } from "../../../middleware/security/noStore.middleware";
 
 module.exports = (app: express.Application) => {
   const auth = new Authentication();

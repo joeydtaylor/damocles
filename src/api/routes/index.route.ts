@@ -1,4 +1,4 @@
-import Core from "../controllers/core";
+import Core from "../controllers/core.controller";
 import express from "express";
 
 module.exports = async (app: express.Application) => {

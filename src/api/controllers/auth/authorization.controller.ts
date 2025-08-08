@@ -1,7 +1,7 @@
 // src/api/controllers/auth/authorization.ts
 import { Request, Response, NextFunction } from "express";
-import { Frozen, ApplyConfiguration } from "../../../helpers/configuration";
-import Authentication from "./authentication";
+import { Frozen, ApplyConfiguration } from "../../../helpers/configuration.helper";
+import Authentication from "./authentication.controller";
 
 @Frozen
 @ApplyConfiguration()

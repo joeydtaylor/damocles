@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
-import { ApplyConfiguration, Frozen } from "../../helpers/configuration";
-import Authorization from "./auth/authorization";
+import { ApplyConfiguration, Frozen } from "../../helpers/configuration.helper";
+import Authorization from "./auth/authorization.controller";
 
 @Frozen
 @ApplyConfiguration()

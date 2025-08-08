@@ -5,7 +5,7 @@ import { URL } from "url";
 import { Writable } from "stream";
 import express, { Request, Response } from "express";
 import morgan from "morgan";
-import { globalConfiguration } from "../../helpers/configuration";
+import { globalConfiguration } from "../../helpers/configuration.helper";
 
 const isProd = process.env.NODE_ENV === "production";
 const logDir = path.join(__dirname, "../../../", globalConfiguration.app.logging.logDir);

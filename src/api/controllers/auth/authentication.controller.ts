@@ -1,6 +1,6 @@
 // src/api/controllers/auth/authentication.ts
 import { Request, Response, NextFunction } from "express";
-import { Frozen, ApplyConfiguration } from "../../../helpers/configuration";
+import { Frozen, ApplyConfiguration } from "../../../helpers/configuration.helper";
 import { OAuthController } from "./oauth.controller";
 import { SamlController } from "./saml.controller";
 

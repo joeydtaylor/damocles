@@ -1,12 +1,12 @@
 import express from "express";
 import { OAuthController } from "../../controllers/auth/oauth.controller";
-import { globalConfiguration } from "../../../helpers/configuration";
+import { globalConfiguration } from "../../../helpers/configuration.helper";
 import {
   revokeLimiter,
   userinfoLimiter,
   authorizeLimiter,
-} from "../../../middleware/security/rateLimit";
-import { noStore } from "../../../middleware/security/noStore";
+} from "../../../middleware/security/rateLimit.middleware";
+import { noStore } from "../../../middleware/security/noStore.middleware";
 
 module.exports = (app: express.Application) => {
   const oidc = new OAuthController(globalConfiguration.security);

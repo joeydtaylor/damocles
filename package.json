@@ -34,6 +34,7 @@
     "joi": "^17.13.3",
     "jose": "^6.0.12",
     "jsonwebtoken": "^9.0.2",
+    "lru-cache": "^10",
     "morgan": "~1.10.0",
     "passport": "^0.7.0",
     "passport-saml": "^3.2.4",

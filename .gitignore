@@ -1,0 +1,12 @@
+node_modules
+etc/samlConfig/metadata/*Idp*.xml
+yarn-error.log*
+.env.development
+.env.production
+.vscode
+log
+/.pnp
+.pnp.js
+dist
+etc/keys/oauth*.key
+etc/keys/oauth*.key

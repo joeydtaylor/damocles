@@ -1,0 +1,67 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis-auth
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["6379:6379"]
+    volumes:
+      - redis-data:/data
+
+  db:
+    image: postgres:16-alpine
+    container_name: postgres-auth
+    environment:
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: supersecret
+      POSTGRES_DB: auth_db
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  aegis-migrate:
+    build: .
+    container_name: aegis-migrate
+    working_dir: /app
+    env_file: .env.development
+    environment:
+      DATABASE_URL: postgresql://auth_user:supersecret@db:5432/auth_db?schema=public
+      POSTGRES_URL: postgresql://auth_user:supersecret@db:5432/auth_db
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "
+        npx prisma generate &&
+        npx prisma db push &&
+        yarn prisma:seed:tenant
+      "
+
+
+  aegis-auth:
+    build: .
+    container_name: aegis-auth
+    env_file: .env.development
+    environment:
+      DATABASE_URL: postgresql://auth_user:supersecret@db:5432/auth_db?schema=public
+      REDIS_URL: redis://redis-auth:6379/0
+    depends_on:
+      aegis-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    ports: ["3000:3000"]
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./log:/app/log
+    command: sh -c "yarn dev"
+
+volumes:
+  redis-data:
+  pgdata:

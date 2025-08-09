@@ -85,7 +85,7 @@ export class OAuthService {
   constructor(
     private oauthCfg: Configuration.ISecurityConfiguration["oauth"],
     private keys: KeyService
-  ) { }
+  ) {}
 
   /* ---- /authorize ---- */
   public async startAuthorizationCode(
@@ -177,7 +177,9 @@ export class OAuthService {
     const { privateKey, kid } = await this.keys.load();
 
     const now = Math.floor(Date.now() / 1000);
+    // Ensure token uniqueness even under concurrent requests in the same second
     const accessToken = await new jose.SignJWT({
+      jti: randomUUID(),
       sub: client.clientId,
       cid: client.clientId,
       org: client.organizationId,
@@ -190,8 +192,11 @@ export class OAuthService {
       .setExpirationTime(now + this.oauthCfg.accessTokenTtlSeconds)
       .sign(privateKey);
 
-    await prisma.oAuthToken.create({
-      data: {
+    // Idempotent write — if somehow the same token reappears, avoid a 500
+    await prisma.oAuthToken.upsert({
+      where: { accessToken },
+      update: {},
+      create: {
         id: randomUUID(),
         accessToken,
         scope: granted,
@@ -261,6 +266,7 @@ export class OAuthService {
 
         const now = Math.floor(Date.now() / 1000);
         const accessJwt = await new jose.SignJWT({
+          jti: randomUUID(),
           sub: authCode.userId!,
           uid: authCode.userId!,
           org: client.organizationId,
@@ -394,6 +400,7 @@ export class OAuthService {
     // 5) Rotate: mint new refresh token + access token
     const now = Math.floor(Date.now() / 1000);
     const accessJwt = await new (await getJose()).SignJWT({
+      jti: randomUUID(),
       sub: (tokenRow as any).userId ?? client.clientId,
       uid: (tokenRow as any).userId ?? undefined,
       org: client.organizationId,
@@ -483,7 +490,7 @@ export class OAuthService {
       const scopes = scopeStr.split(/\s+/).filter(Boolean);
 
       // Determine if this is a user token vs client_credentials token
-      const uid = (payload as any).uid ?? null;  // set for authorization_code
+      const uid = (payload as any).uid ?? null; // set for authorization_code
 
       if (!uid) {
         return {
@@ -510,14 +517,9 @@ export class OAuthService {
         out.email_verified = user?.email ? true : null;
       }
 
-      if (needsProfile) {
-        // out.name = user?.name ?? null; // Uncomment if name is in schema
-      }
-
       return out;
     } catch {
       return { error: "invalid_token" };
     }
   }
-
 }

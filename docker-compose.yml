@@ -1,7 +1,7 @@
 services:
   redis:
     image: redis:7-alpine
-    container_name: damacles-redis
+    container_name: damocles-redis
     command: ["redis-server", "--appendonly", "yes"]
     ports: ["6379:6379"]
     volumes:
@@ -11,7 +11,7 @@ services:
 
   db:
     image: postgres:16-alpine
-    container_name: damacles-postgres
+    container_name: damocles-postgres
     environment:
       POSTGRES_USER: auth_user
       POSTGRES_PASSWORD: supersecret
@@ -56,7 +56,7 @@ services:
     env_file: .env.development
     environment:
       DATABASE_URL: postgresql://auth_user:supersecret@db:5432/auth_db?schema=public
-      REDIS_URL: redis://damacles-redis:6379/0
+      REDIS_URL: redis://damocles-redis:6379/0
 
       # TLS for the server itself
       SSL_SERVER_CERTIFICATE: /app/etc/keys/tls/server.crt

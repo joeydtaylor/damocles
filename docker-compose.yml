@@ -1,15 +1,17 @@
 services:
   redis:
     image: redis:7-alpine
-    container_name: redis-auth
+    container_name: damacles-redis
     command: ["redis-server", "--appendonly", "yes"]
     ports: ["6379:6379"]
     volumes:
       - redis-data:/data
+    networks:
+      - steeze-edge
 
   db:
     image: postgres:16-alpine
-    container_name: postgres-auth
+    container_name: damacles-postgres
     environment:
       POSTGRES_USER: auth_user
       POSTGRES_PASSWORD: supersecret
@@ -22,6 +24,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    networks:
+      - steeze-edge
 
   damocles-migrate:
     build: .
@@ -43,6 +47,8 @@ services:
         yarn prisma:init:local &&
         yarn prisma:seed:tenant
       "
+    networks:
+      - steeze-edge
 
   damocles:
     build: .
@@ -50,24 +56,39 @@ services:
     env_file: .env.development
     environment:
       DATABASE_URL: postgresql://auth_user:supersecret@db:5432/auth_db?schema=public
-      REDIS_URL: redis://redis-auth:6379/0
-      # If your app needs to know where its TLS certs live:
+      REDIS_URL: redis://damacles-redis:6379/0
+
+      # TLS for the server itself
       SSL_SERVER_CERTIFICATE: /app/etc/keys/tls/server.crt
       SSL_SERVER_KEY: /app/etc/keys/tls/server.key
+
+      # If you perform mTLS with clients, expose CA bundle:
+      TLS_CLIENT_CA_BUNDLE: /app/etc/keys/tls/ca.crt
+
+      # Optional hardening
+      TLS_MIN_VERSION: TLSv1.3
+
     depends_on:
       damocles-migrate:
         condition: service_completed_successfully
       redis:
         condition: service_started
+
     ports: ["3000:3000"]
     working_dir: /app
     volumes:
       - .:/app
       - /app/node_modules
-      - ./etc/keys:/app/etc/keys   # same path as migrate → app sees generated keys
+      - ./etc/keys:/app/etc/keys
       - ./log:/app/log
     command: sh -c "yarn dev"
+    networks:
+      - steeze-edge
 
 volumes:
   redis-data:
   pgdata:
+
+networks:
+  steeze-edge:
+    external: true

@@ -34,8 +34,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # Share ONLY the keys dir so generated keys persist/are visible to damocles-auth
     volumes:
+      # generate/sign keys here so the app container can read the same files
       - ./etc/keys:/app/etc/keys
     command: >
       sh -c "
@@ -51,6 +51,9 @@ services:
     environment:
       DATABASE_URL: postgresql://auth_user:supersecret@db:5432/auth_db?schema=public
       REDIS_URL: redis://redis-auth:6379/0
+      # If your app needs to know where its TLS certs live:
+      SSL_SERVER_CERTIFICATE: /app/etc/keys/tls/server.crt
+      SSL_SERVER_KEY: /app/etc/keys/tls/server.key
     depends_on:
       damocles-migrate:
         condition: service_completed_successfully

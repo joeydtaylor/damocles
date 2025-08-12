@@ -313,21 +313,125 @@ export class OAuthController {
     }
   };
 
-  // ---- /introspect ----
+  // ---- /introspect (RFC 7662) ----
   introspect = async (req: Request, res: Response): Promise<void> => {
     try {
+      // Accept JSON or x-www-form-urlencoded
       const body = jsonOrForm(req);
-      const token = body?.token as string | undefined;
+
+      // Per RFC 7662 the token MUST be in the request body
+      const token = (body?.token as string | undefined)?.trim();
+      const tokenTypeHint = (body?.token_type_hint as string | undefined) || undefined;
+
       if (!token) {
         res.status(400).json({ active: false, error: "missing_token" });
         return;
       }
+
+      // ---- Client Authentication (required) ----
+      // Prefer HTTP Basic over POST fields when both are provided
+      const basic = parseBasicAuth(req);
+      const client_id =
+        basic.client_id ?? (body.client_id as string | undefined)?.trim();
+      const client_secret =
+        basic.client_secret ?? (body.client_secret as string | undefined);
+
+      if (!client_id) {
+        // RFC 7662 allows the AS to require client auth; we do
+        sendOauthError(res, 401, "invalid_client", "client authentication required");
+        return;
+      }
+
+      // Look up the client
+      const client = await prisma.oAuthClient.findUnique({
+        where: { clientId: client_id },
+      });
+
+      if (!client) {
+        // Do NOT leak whether the client exists; reply 401 per OAuth error semantics
+        sendOauthError(res, 401, "invalid_client");
+        return;
+      }
+
+      // If confidential, require and verify secret (bcrypt hash stored in DB)
+      if (client.confidential) {
+        if (!client_secret) {
+          sendOauthError(res, 401, "invalid_client");
+          return;
+        }
+        const ok = await import("bcrypt").then(({ default: bcrypt }) =>
+          bcrypt.compare(client_secret, client.clientSecret)
+        );
+        if (!ok) {
+          sendOauthError(res, 401, "invalid_client");
+          return;
+        }
+      }
+
+      // ---- Introspection proper ----
+      // Your service should return RFC 7662-compatible structure:
+      // { active: boolean, scope?: string, client_id?: string, aud?: string|string[], exp?: number, ... }
       const out = await this.svc.introspect(token);
-      res.json(out);
+
+      // If the AS chooses to signal errors, normalize to inactive when appropriate
+      if (!out || (out as any).error) {
+        res.status(200).json({ active: false });
+        return;
+      }
+
+      // Hardening options (toggle on as needed)
+      const requireSameClient =
+        (this.security as any)?.oauth?.introspection?.requireSameClient ?? false;
+      const requiredAudiences: string[] =
+        (this.security as any)?.oauth?.introspection?.requiredAudiences ?? [];
+      const requiredScopes: string[] =
+        (this.security as any)?.oauth?.introspection?.requiredScopes ?? [];
+
+      // (1) Enforce token was issued to this client_id (helps avoid token replay across RS)
+      if (requireSameClient) {
+        const tokenClientId = (out as any).client_id as string | undefined;
+        if (tokenClientId && tokenClientId !== client.clientId) {
+          // Don’t leak — standard practice is to return { active: false }
+          res.status(200).json({ active: false });
+          return;
+        }
+      }
+
+      // (2) Enforce audience (if you set it on access tokens)
+      if (requiredAudiences.length > 0) {
+        const aud = (out as any).aud;
+        const audList = Array.isArray(aud) ? aud : aud ? [aud] : [];
+        const ok = requiredAudiences.every((a) => audList.includes(a));
+        if (!ok) {
+          res.status(200).json({ active: false });
+          return;
+        }
+      }
+
+      // (3) Enforce scopes (if your RS needs specific scopes)
+      if (requiredScopes.length > 0) {
+        const scopeStr = (out as any).scope as string | undefined; // space-delimited
+        const scopes = scopeStr ? scopeStr.split(/\s+/).filter(Boolean) : [];
+        const ok = requiredScopes.every((s) => scopes.includes(s));
+        if (!ok) {
+          res.status(200).json({ active: false });
+          return;
+        }
+      }
+
+      // Optionally honor token_type_hint (no-op here; included for completeness)
+      void tokenTypeHint;
+
+      // Success — return the full RFC 7662 response (do not add secrets)
+      res.status(200).json(out);
+      return;
     } catch {
+      // Per spec, avoid leaking errors — 500 with OAuth body is acceptable
       sendOauthError(res, 500, "server_error");
+      return;
     }
   };
+
 
   // ---- /revoke (RFC 7009) ----
   revoke = async (req: Request, res: Response): Promise<void> => {

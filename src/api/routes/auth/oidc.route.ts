@@ -1,3 +1,4 @@
+// src/api/routes/auth/oidc.route.ts
 import express from "express";
 import { OAuthController } from "../../controllers/auth/oauth.controller";
 import { globalConfiguration } from "../../../helpers/configuration.helper";

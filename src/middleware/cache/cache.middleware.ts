@@ -1,4 +1,4 @@
-// src/middleware/cache/sessionContextCache.ts
+// src/middleware/cache/cache.middleware.ts
 import { LRUCache } from "lru-cache";
 import type { Request, Response, NextFunction } from "express";
 

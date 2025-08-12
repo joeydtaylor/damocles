@@ -1,3 +1,4 @@
+// src/api/controllers/core.controller.ts
 import { NextFunction, Request, Response } from "express";
 import { ApplyConfiguration, Frozen } from "../../helpers/configuration.helper";
 import Authorization from "./auth/authorization.controller";

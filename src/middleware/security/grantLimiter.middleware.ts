@@ -1,3 +1,4 @@
+// src/middleware/security/grantLimiter.middleware.ts
 import type { Request, Response, NextFunction } from "express";
 import { tokenLimiter, refreshLimiter } from "./rateLimit.middleware";
 

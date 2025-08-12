@@ -1,6 +1,7 @@
 // src/api/controllers/auth/saml.controller.ts
 import { Request, Response, NextFunction } from "express";
 import passport from "passport";
+import { setSessionAssertion } from "../../../utils/session-assertion";
 
 type RelayState = { domain?: string; returnTo?: string };
 
@@ -65,12 +66,38 @@ export class SamlController {
 
     (req as any)._relayState = parsed;
 
-    passport.authenticate(`saml-${parsed.domain}`, {
-      session: true,
-      failureRedirect: "/api",
-      successRedirect: parsed.returnTo || "/api",
-      failureFlash: true,
-    })(req, res, next);
+    passport.authenticate(
+      `saml-${parsed.domain}`,
+      { session: true, failureFlash: true },
+      async (err: unknown, user: Express.User | false, _info: unknown) => {
+        if (err) return next(err);
+        if (!user) {
+          res.redirect("/api");
+          return;
+        }
+
+        req.logIn(user as Express.User, async (loginErr?: any) => {
+          if (loginErr) return next(loginErr);
+
+          try {
+            await setSessionAssertion(
+              res,
+              {
+                id: (user as any).id,
+                organizationId: (user as any).organizationId,
+                roles: Array.isArray((user as any).roles) ? (user as any).roles : [],
+                role: (user as any).role || "reader",
+              },
+              (req as any).sessionID
+            );
+          } catch {
+            // non-fatal
+          }
+
+          res.redirect(parsed.returnTo || "/api");
+        });
+      }
+    )(req, res, next);
   };
 }
 

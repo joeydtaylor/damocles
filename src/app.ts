@@ -1,4 +1,4 @@
-// app.ts
+// src/app.ts
 import express from "express";
 import passport from "passport";
 import cookieParser from "cookie-parser";

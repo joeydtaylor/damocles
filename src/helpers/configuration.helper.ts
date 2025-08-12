@@ -1,3 +1,4 @@
+// src/helpers/configuration.helper.ts
 import config from "../config/config";
 
 config.security.corsOrigin = [...config.security.corsOrigin];

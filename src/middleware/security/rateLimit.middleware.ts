@@ -1,3 +1,4 @@
+// src/middleware/security/rateLimit.middleware.ts
 import rateLimit from "express-rate-limit";
 import type { RequestHandler } from "express";
 

@@ -2,6 +2,7 @@
 import { Request, Response, NextFunction } from "express";
 import { Frozen, ApplyConfiguration } from "../../../helpers/configuration.helper";
 import Authentication from "./authentication.controller";
+import { setSessionAssertion } from "../../../utils/session-assertion";
 
 @Frozen
 @ApplyConfiguration()
@@ -100,6 +101,14 @@ export class Authorization implements Authorization.IAuthorize {
    */
   public getUserContext = (req: Request, res: Response): void => {
     if (req.user) {
+      // NEW: rotate/refresh assertion
+      setSessionAssertion(res, {
+        id: (req.user as any).id,
+        organizationId: (req.user as any).organizationId,
+        roles: (req.user as any).roles || [],
+        role: (req.user as any).role,
+      }, req.sessionID);
+
       res.status(200).json({
         id: (req.user as any).id,
         email: (req.user as any).email,
@@ -110,11 +119,7 @@ export class Authorization implements Authorization.IAuthorize {
       });
       return;
     }
-
-    res.status(401).json({
-      message: "Unauthorized",
-      type: "error",
-    } as Service.JsonMessageContext);
+    res.status(401).json({ message: "Unauthorized", type: "error" });
   };
 }
 

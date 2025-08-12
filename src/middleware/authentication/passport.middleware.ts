@@ -1,3 +1,4 @@
+// src/middleware/authentication/passport.middleware.ts
 import { MetadataReader, toPassportConfig } from "passport-saml-metadata";
 import { Strategy as SamlStrategy } from "passport-saml";
 import passport from "passport";

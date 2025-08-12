@@ -3,6 +3,8 @@ import { Request, Response, NextFunction } from "express";
 import { Frozen, ApplyConfiguration } from "../../../helpers/configuration.helper";
 import { OAuthController } from "./oauth.controller";
 import { SamlController } from "./saml.controller";
+import { clearSessionAssertion } from "../../../utils/session-assertion";
+
 
 @Frozen
 @ApplyConfiguration()
@@ -47,6 +49,7 @@ export class Authentication implements Authorization.IAuthenticate {
         return;
       }
 
+      // Clear the main session cookie
       res.clearCookie(cookieCfg.name, {
         httpOnly: cookieCfg.httpOnly,
         secure: cookieCfg.secure,
@@ -54,6 +57,9 @@ export class Authentication implements Authorization.IAuthenticate {
         signed: cookieCfg.signed,
         path: "/",
       });
+
+      // Clear the session assertion cookie
+      clearSessionAssertion(res);
 
       res.status(200).json({ message: "successfully logged out", type: "success" });
     });

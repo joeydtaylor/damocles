@@ -1,3 +1,4 @@
+// src/api/routes/index.route.ts
 import Core from "../controllers/core.controller";
 import express from "express";
 

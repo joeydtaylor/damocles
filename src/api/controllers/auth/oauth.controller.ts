@@ -6,6 +6,7 @@ import { URLSearchParams } from "url";
 import { OAuthService } from "../../services/oauth.service";
 import { KeyService } from "../../services/key.service";
 import { PrismaClient } from "@prisma/client";
+import { setSessionAssertion } from "../../../utils/session-assertion";
 
 const prisma = new PrismaClient();
 
@@ -518,6 +519,23 @@ export class OAuthController {
       delete req.session.oidcState;
       delete req.session.oidcVerifier;
       delete req.session.oidcNonce;
+
+      // Issue session assertion cookie (inherits SameSite/Secure)
+      const userWithRoles = await prisma.user.findUnique({
+        where: { id: user.id },
+        include: { roles: true },
+      });
+
+      await setSessionAssertion(
+        res,
+        {
+          id: user.id,
+          organizationId: user.organizationId,
+          roles: userWithRoles?.roles?.map((r: any) => r.name) ?? [],
+          role: userWithRoles?.roles?.[0]?.name ?? "reader",
+        },
+        req.sessionID
+      );
 
       res.redirect(process.env.FRONT_END_BASE_URL || "/");
     } catch {

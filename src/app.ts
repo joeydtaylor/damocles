@@ -1,4 +1,3 @@
-// src/app.ts
 import express from "express";
 import passport from "passport";
 import cookieParser from "cookie-parser";
@@ -175,6 +174,13 @@ const main = async (): Promise<void> => {
   await require("./api/routes/auth/logout.route")(app);
   await require("./api/routes/auth/session.route")(app);
   await require("./api/routes/index.route")(app);
+
+  // ---- Global error handler (prevents process crash on runtime errors)
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    if ((res as any).headersSent) return;
+    const status = Number.isInteger(err?.status) ? err.status : 500;
+    res.status(status).json({ error: "internal_error" });
+  });
 
   // 8. Start HTTPS server (and optional HTTP→HTTPS redirect server)
   const httpsOptions: https.ServerOptions = {

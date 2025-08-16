@@ -1,4 +1,3 @@
-// src/utils/session-assertion.ts
 import type { Response } from "express";
 import { globalConfiguration } from "../helpers/configuration.helper";
 import { KeyService } from "../api/services/key.service";
@@ -23,7 +22,7 @@ const COOKIE_NAME = "assert"; // keep separate from session cookie
 
 /**
  * Signs a short-lived assertion JWT bound to the session and sets it as an HttpOnly cookie.
- * SameSite inherits from APPLICATION_COOKIE_SAME_SITE if set, otherwise from SESSION_COOKIE_SAME_SITE.
+ * Safe against late writes: skips cookie if headers already went out.
  */
 export async function setSessionAssertion(
   res: Response,
@@ -71,18 +70,26 @@ export async function setSessionAssertion(
     .setExpirationTime(exp)
     .sign(privateKey);
 
-  res.cookie(COOKIE_NAME, jwt, {
+  const cookieOpts = {
     httpOnly: true,
     secure: true,
     sameSite,
     signed: appCookieCfg.signed,
     path: "/",
     maxAge: (exp - now) * 1000,
-  });
+  } as const;
+
+  // Guard against late header writes to avoid ERR_HTTP_HEADERS_SENT
+  if ((res as any).headersSent) return;
+  try {
+    res.cookie(COOKIE_NAME, jwt, cookieOpts);
+  } catch {
+    // non-fatal; skip cookie if already committed by another layer
+  }
 }
 
 /**
- * Clears the assertion cookie.
+ * Clears the assertion cookie (safe if headers already sent).
  */
 export function clearSessionAssertion(res: Response) {
   const security = globalConfiguration.security;
@@ -90,11 +97,16 @@ export function clearSessionAssertion(res: Response) {
   const appCookieCfg = security.authentication.applicationCookieConfiguration;
   const sameSite: any = (appCookieCfg.sameSite as any) ?? (sessCfg.sameSite as any);
 
-  res.clearCookie(COOKIE_NAME, {
-    httpOnly: true,
-    secure: true,
-    sameSite,
-    signed: appCookieCfg.signed,
-    path: "/",
-  });
+  if ((res as any).headersSent) return;
+  try {
+    res.clearCookie(COOKIE_NAME, {
+      httpOnly: true,
+      secure: true,
+      sameSite,
+      signed: appCookieCfg.signed,
+      path: "/",
+    });
+  } catch {
+    // non-fatal
+  }
 }
